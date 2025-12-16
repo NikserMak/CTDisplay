@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Кофейня - ТВ Меню</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #000;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      #slideshow-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      .slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 1s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #000;
+      }
+
+      .slide.active {
+        opacity: 1;
+      }
+
+      .slide img,
+      .slide video {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+
+      /* Индикатор (можно отключить) */
+      #info {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        z-index: 1000;
+      }
+
+      /* Стиль для PDF */
+      .slide iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="slideshow-container"></div>
+    <div id="info">Загрузка...</div>
+
+    <script>
+      // Конфигурация для ТВ
+      const CONFIG = {
+        folder: "tv-files", // Папка с файлами
+        slideDuration: 40000, // 40 секунд на слайд
+        transitionDuration: 1000, // 1 секунда переход
+        autoRefresh: 30000, // Проверять новые файлы каждые 30 сек
+        supportedFiles: [
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".gif",
+          ".mp4",
+          ".webm",
+          ".pdf",
+        ],
+      };
+
+      class TVSlideshow {
+        constructor() {
+          this.currentSlide = 0;
+          this.files = [];
+          this.container = document.getElementById("slideshow-container");
+          this.info = document.getElementById("info");
+
+          this.init();
+        }
+
+        async init() {
+          // Загружаем список файлов
+          await this.loadFileList();
+
+          // Если файлов нет, показываем сообщение
+          if (this.files.length === 0) {
+            this.showNoFilesMessage();
+            return;
+          }
+
+          // Создаём слайды
+          this.createSlides();
+
+          // Показываем первый слайд
+          this.showSlide(0);
+
+          // Запускаем автоматическое переключение
+          this.startSlideshow();
+
+          // Автообновление списка файлов
+          setInterval(() => this.loadFileList(), CONFIG.autoRefresh);
+
+          // Обновляем информацию
+          this.updateInfo();
+        }
+
+        async loadFileList() {
+          try {
+            // Для GitHub Pages используем фиксированный список
+            // В реальности нужно будет обновлять этот список вручную
+            // или использовать GitHub API
+
+            // ПРИМЕР: здесь нужно указать ваши реальные имена файлов
+            // Этот массив нужно обновлять при добавлении новых файлов
+            const fileList = [
+              "1.jpg",
+              "2.jpg",
+              "3.jpg",
+              "4.jpg",
+            ];
+
+            // Фильтруем только поддерживаемые форматы
+            this.files = fileList.filter((file) => {
+              const ext = "." + file.split(".").pop().toLowerCase();
+              return CONFIG.supportedFiles.includes(ext);
+            });
+
+            console.log("Загружено файлов:", this.files.length);
+          } catch (error) {
+            console.error("Ошибка загрузки списка файлов:", error);
+            this.files = ["default_tv.jpg"]; // Файл по умолчанию
+          }
+        }
+
+        createSlides() {
+          // Очищаем контейнер
+          this.container.innerHTML = "";
+
+          // Создаём слайды для каждого файла
+          this.files.forEach((filename, index) => {
+            const slide = document.createElement("div");
+            slide.className = "slide";
+            slide.dataset.index = index;
+            slide.dataset.filename = filename;
+
+            const fileUrl = `${CONFIG.folder}/${filename}`;
+            const extension = filename.split(".").pop().toLowerCase();
+
+            let mediaElement;
+
+            // Создаём элемент в зависимости от типа файла
+            if (["mp4", "webm", "ogg"].includes(extension)) {
+              mediaElement = document.createElement("video");
+              mediaElement.autoplay = true;
+              mediaElement.muted = true;
+              mediaElement.loop = true;
+              mediaElement.playsInline = true;
+              mediaElement.src = fileUrl;
+            } else if (extension === "pdf") {
+              mediaElement = document.createElement("iframe");
+              mediaElement.src = fileUrl;
+            } else {
+              mediaElement = document.createElement("img");
+              mediaElement.src = fileUrl;
+              mediaElement.alt = filename;
+              // Предзагрузка следующего изображения
+              if (index < this.files.length - 1) {
+                const nextImg = new Image();
+                nextImg.src = `${CONFIG.folder}/${this.files[index + 1]}`;
+              }
+            }
+
+            slide.appendChild(mediaElement);
+            this.container.appendChild(slide);
+          });
+        }
+
+        showSlide(index) {
+          // Скрываем все слайды
+          document.querySelectorAll(".slide").forEach((slide) => {
+            slide.classList.remove("active");
+          });
+
+          // Показываем нужный слайд
+          const slides = document.querySelectorAll(".slide");
+          if (slides[index]) {
+            slides[index].classList.add("active");
+            this.currentSlide = index;
+
+            // Обновляем информацию
+            this.updateInfo();
+          }
+        }
+
+        startSlideshow() {
+          setInterval(() => {
+            let nextSlide = this.currentSlide + 1;
+
+            // Если дошли до конца, начинаем сначала
+            if (nextSlide >= this.files.length) {
+              nextSlide = 0;
+            }
+
+            this.showSlide(nextSlide);
+          }, CONFIG.slideDuration);
+        }
+
+        updateInfo() {
+          if (this.files.length > 0) {
+            this.info.textContent = `ТВ | Слайд: ${this.currentSlide + 1}/${
+              this.files.length
+            } | Файл: ${this.files[this.currentSlide]}`;
+          }
+        }
+
+        showNoFilesMessage() {
+          this.container.innerHTML = `
+                    <div style="
+                        color: white;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100%;
+                        font-size: 24px;
+                        text-align: center;
+                        padding: 20px;
+                    ">
+                        <div>
+                            <h1>Нет файлов для отображения</h1>
+                            <p>Добавьте файлы в папку "tv-files/"</p>
+                            <p>Поддерживаемые форматы: JPG, PNG, GIF, MP4, PDF</p>
+                        </div>
+                    </div>
+                `;
+        }
+      }
+
+      // Запускаем при загрузке страницы
+      document.addEventListener("DOMContentLoaded", () => {
+        new TVSlideshow();
+      });
+    </script>
+  </body>
+</html>
